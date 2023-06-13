@@ -51,7 +51,7 @@ public class DashControlMain {
         parser.addArgument("-d", "--days")
                 .metavar("Days")
                 .setDefault(7)
-                .help("Numbers of days to extract");
+                .help("Days of data to extract");
         parser.addArgument("-o", "--output")
                 .metavar("Output Format")
                 .choices("XML", "JSON", "CSV", "BRAIL")
@@ -80,7 +80,7 @@ public class DashControlMain {
 
         // create a console appender
         AppenderComponentBuilder appenderBuilder = builder.newAppender("Console", "CONSOLE")
-                .addAttribute("target", ConsoleAppender.Target.SYSTEM_OUT);
+                .addAttribute("target", ConsoleAppender.Target.SYSTEM_ERR);
         // add a layout like pattern, json etc
         appenderBuilder.add(builder.newLayout("PatternLayout")
                 .addAttribute("pattern", "%d %p %c [%t] %m%n"));
