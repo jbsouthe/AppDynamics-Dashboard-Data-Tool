@@ -41,14 +41,16 @@ public class DashControlMain {
                 .help("Use this specific config file.");
         parser.addArgument("-a", "--application")
                 .metavar("Application")
+                .required(true)
                 .help("Metric is in this specific application");
         parser.addArgument("-b", "--baseline")
                 .metavar("Baseline")
                 .choices("Default", "Weekly", "Daily", "Monthly")
                 .setDefault("Default")
-                .help("Only manage a specific data type: {\"Default\", \"Weekly\", \"Daily\", \"Monthly\"}");
+                .help("Baseline: {\"Default\", \"Weekly\", \"Daily\", \"Monthly\"}");
         parser.addArgument("-m", "--metric")
                 .metavar("Metric")
+                .required(true)
                 .help("Metric name to extract");
         parser.addArgument("-d", "--days")
                 .metavar("Days")
