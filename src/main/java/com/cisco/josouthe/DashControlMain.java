@@ -1,5 +1,7 @@
 package com.cisco.josouthe;
 
+import com.cisco.josouthe.output.OutputPrinter;
+import com.cisco.josouthe.output.XMLOutputPrinter;
 import com.cisco.josouthe.util.Utility;
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.impl.Arguments;
@@ -22,7 +24,7 @@ import java.net.MalformedURLException;
 import java.util.Properties;
 
 public class DashControlMain {
-    private static final Logger logger = LogManager.getFormatterLogger();
+    //private static final Logger logger = LogManager.getFormatterLogger(DashControlMain.class);
 
     public static void main( String[] args ) {
 
@@ -66,7 +68,7 @@ public class DashControlMain {
         Namespace namespace = null;
         try {
             namespace = parser.parseArgs(args);
-            logger.info("parser: %s", namespace);
+            //logger.info("parser: %s", namespace);
         } catch (ArgumentParserException e) {
             parser.handleError(e);
             System.exit(1);
@@ -74,7 +76,7 @@ public class DashControlMain {
 
         ConfigurationBuilder<BuiltConfiguration> builder = ConfigurationBuilderFactory.newConfigurationBuilder();
 
-        builder.setStatusLevel(Level.INFO);
+        builder.setStatusLevel(Level.ERROR);
         // naming the logger configuration
         builder.setConfigurationName("DefaultLogger");
 
@@ -90,7 +92,7 @@ public class DashControlMain {
         builder.add(appenderBuilder);
         builder.add(rootLogger);
         Configurator.reconfigure(builder.build());
-
+        Logger logger = LogManager.getFormatterLogger(DashControlMain.class);
         Properties configProperties = new Properties();
         try {
             configProperties.load(new FileInputStream(namespace.getString("config")));
@@ -117,7 +119,15 @@ public class DashControlMain {
         String metricName = namespace.getString("metric");
         String baseline = namespace.getString("baseline");
         int days = namespace.getInt("days");
-        String outputFormat = namespace.getString("output");
+        OutputPrinter outputPrinter = null;
+        switch (namespace.getString("output")) {
+            case "XML":
+            default: {
+                outputPrinter = new XMLOutputPrinter();
+                break;
+            }
+        }
+        outputPrinter.print( System.out );
         //TODO: query the data along with the baseline data, and output it however the user asks
     }
 }
