@@ -13,7 +13,7 @@ public class MetricData {
         this.metricName = name;
     }
 
-    public long metricId;
+    public long metricId, applicationId;
     public String metricName, metricPath, frequency, hostname;
     public transient URL url;
     public List<MetricValue> metricValues;

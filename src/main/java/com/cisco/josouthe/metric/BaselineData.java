@@ -13,6 +13,12 @@ public class BaselineData {
     public String applicationName;
     public Baseline baseline;
 
+    public MetricValue getTimeSlice( long timestamp ) {
+        for( BaselineTimeslice baselineTimeslice : dataTimeslices )
+            if( timestamp == baselineTimeslice.startTime ) return baselineTimeslice.metricValue;
+        return null;
+    }
+
     public long purgeNullBaselineTimeslices() {
         if( dataTimeslices == null || dataTimeslices.isEmpty() ) return 0;
         long counter=0;

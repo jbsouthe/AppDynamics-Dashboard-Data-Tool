@@ -34,6 +34,7 @@ import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Controller {
     private static final Logger logger = LogManager.getFormatterLogger(Controller.class);
@@ -170,20 +171,28 @@ public class Controller {
         return true;
     }
 
-    public MetricData[] getMetricValue(Application application, String metricName) {
-        long timestamp = System.currentTimeMillis();
-        return getMetricValue(application, metricName, timestamp-(14*24*60*60*1000), timestamp );
+    public MetricData getMetricValue( String appName, String metricName, String baselineName, int days ) {
+        long startTimestamp = System.currentTimeMillis() - (days*24*60*60*1000);
+        long endTimestamp = System.currentTimeMillis();
+        MetricData[] data = getMetricValue(appName, metricName, startTimestamp, endTimestamp );
+        return data[0];
     }
 
-    public MetricData[] getMetricValue(Application application, String metricName, long startTimestamp, long endTimestamp ) {
+    public MetricData[] getMetricValue(Application application, String metricName) {
+        long timestamp = System.currentTimeMillis();
+        return getMetricValue(application.name, metricName, timestamp-(14*24*60*60*1000), timestamp );
+    }
+
+    public MetricData[] getMetricValue(String appName, String metricName, long startTimestamp, long endTimestamp ) {
+        logger.debug(String.format("Application '%s' Metric Name '%s' start: %d end: %d",appName, metricName, startTimestamp, endTimestamp));
         MetricData[] metrics = null;
 
         int tries=0;
         boolean succeeded = false;
         while (! succeeded && tries < 3 ) {
             try {
-                metrics = getMetricValue(String.format("%scontroller/rest/applications/%s/metric-data?metric-path=%s&time-range-type=BETWEEN_TIMES&start-time=%d&end-time=%d&output=JSON&rollup=true",
-                        this.url, Utility.encode(application.name), Utility.encode(metricName), startTimestamp, endTimestamp)
+                metrics = getMetricValue(String.format("%scontroller/rest/applications/%s/metric-data?metric-path=%s&time-range-type=BETWEEN_TIMES&start-time=%d&end-time=%d&output=JSON&rollup=false",
+                        this.url, Utility.encode(appName), Utility.encode(metricName), startTimestamp, endTimestamp)
                 );
                 succeeded=true;
             } catch (ControllerBadStatusException controllerBadStatusException) {
@@ -193,6 +202,8 @@ public class Controller {
         }
         if( !succeeded)
             logger.warn("Gave up after %d tries, not getting %s back", tries, metricName);
+        for( MetricData metricData : metrics )
+            metricData.applicationName = appName;
         return metrics;
     }
 
@@ -336,6 +347,51 @@ public class Controller {
         return this.controllerModel;
     }
 
+    public List<BaselineData> getBaselineValue( MetricData metricData, String baselineName, String appName, Long appId, long startTimestamp, long endTimestamp ) {
+        ArrayList<BaselineData> baselines = new ArrayList<>();
+        if( appId == null ) {
+            appId = getApplicationId(appName);
+        }
+        Baseline baseline = getBaseline(appId, baselineName);
+        if( baseline == null ) {
+            logger.error("Could not find a baseline named: "+ baselineName);
+            return baselines;
+        }
+        boolean succeeded=false;
+        int tries=0;
+        String json = "";
+        while( !succeeded && tries < 3 ) {
+            tries++;
+            try {
+                json = postRequest(
+                        "controller/restui/metricBrowser/getMetricBaselineData?granularityMinutes=1",
+                        String.format("{\"metricDataQueries\":[{\"metricId\":%d,\"entityId\":%d,\"entityType\":\"APPLICATION\"}],\"timeRangeSpecifier\":{\"type\":\"BETWEEN_TIMES\",\"durationInMinutes\":null,\"endTime\":%d,\"startTime\":%d,\"timeRange\":null,\"timeRangeAdjusted\":false},\"metricBaseline\":%d,\"maxSize\":1440}",
+                                metricData.metricId, appId, endTimestamp, startTimestamp, baseline.id));
+                succeeded=true;
+            } catch (ControllerBadStatusException controllerBadStatusException) {
+                logger.warn("Error in request to pull baseline metrics using an undocumented, internal, api. This is retriable, attempt %d Error: %s", tries, controllerBadStatusException.getMessage());
+            }
+        }
+        if( !succeeded ) {
+            logger.error("Giving up on attempt to get Baseline metrics, the controller isn't responding properly");
+            return null;
+        }
+        long totalPurgeCount=0;
+        for( BaselineData baselineData : gson.fromJson(json, BaselineData[].class)) {
+            baselineData.metricName = metricData.metricName; //this is blank on my test data, not sure why it isn't set
+            baselineData.controllerHostname = this.hostname;
+            baselineData.applicationName = appName;
+            baselineData.baseline = baseline;
+            long purgeCount = baselineData.purgeNullBaselineTimeslices();
+            if( purgeCount > 0) logger.trace("Purged %d Baselines that contained no data",purgeCount);
+            totalPurgeCount += purgeCount;
+            if( baselineData.hasData() )
+                baselines.add(baselineData);
+        }
+
+        return baselines;
+    }
+
 
     public Baseline[] getAllBaselines( Application application ) {
         if( application == null ) return null;
@@ -351,6 +407,14 @@ public class Controller {
             return baselines;
         } catch (ControllerBadStatusException controllerBadStatusException) {
             logger.warn("Error using undocumented api to pull back listing of all application baselines, application '%s'", applicationId);
+        }
+        return null;
+    }
+
+    public Baseline getBaseline( long appId, String name) {
+        for( Baseline baseline : getAllBaselines(appId) ) {
+            if( name.equalsIgnoreCase("default") && baseline.defaultBaseline ) return baseline;
+            if( name.equalsIgnoreCase(baseline.name) ) return baseline;
         }
         return null;
     }

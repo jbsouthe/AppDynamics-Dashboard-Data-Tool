@@ -1,5 +1,7 @@
 package com.cisco.josouthe;
 
+import com.cisco.josouthe.metric.BaselineData;
+import com.cisco.josouthe.metric.MetricData;
 import com.cisco.josouthe.output.OutputPrinter;
 import com.cisco.josouthe.output.XMLOutputPrinter;
 import com.cisco.josouthe.util.Utility;
@@ -21,6 +23,7 @@ import org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
 
 import java.io.FileInputStream;
 import java.net.MalformedURLException;
+import java.util.List;
 import java.util.Properties;
 
 public class DashControlMain {
@@ -94,7 +97,7 @@ public class DashControlMain {
         builder.add(appenderBuilder);
         builder.add(rootLogger);
         Configurator.reconfigure(builder.build());
-        Logger logger = LogManager.getFormatterLogger(DashControlMain.class);
+        Logger logger = LogManager.getFormatterLogger("DashControlMain");
         Properties configProperties = new Properties();
         try {
             configProperties.load(new FileInputStream(namespace.getString("config")));
@@ -121,6 +124,15 @@ public class DashControlMain {
         String metricName = namespace.getString("metric");
         String baseline = namespace.getString("baseline");
         int days = namespace.getInt("days");
+        logger.info(String.format("Pulling '%s'[%s] with %s Baseline for the last %d days", application, metricName, baseline, days));
+        long startTimestamp = System.currentTimeMillis() - (days*24*60*60*1000);
+        long endTimestamp = System.currentTimeMillis();
+        long appId = controller.getApplicationId(application);
+        logger.debug("appid: "+ appId);
+        MetricData[] data = controller.getMetricValue(application, metricName, startTimestamp, endTimestamp );
+        logger.debug("metric data: "+ data.length);
+        List<BaselineData> baselineData = controller.getBaselineValue(data[0], baseline, application, null, startTimestamp, endTimestamp);
+        logger.debug("baseline data: "+ baselineData.size());
         OutputPrinter outputPrinter = null;
         switch (namespace.getString("output")) {
             case "XML":
@@ -129,6 +141,8 @@ public class DashControlMain {
                 break;
             }
         }
+        outputPrinter.setMetricData(data[0]);
+        outputPrinter.setBaseLineData(baselineData.get(0));
         outputPrinter.print( System.out );
         //TODO: query the data along with the baseline data, and output it however the user asks
     }
