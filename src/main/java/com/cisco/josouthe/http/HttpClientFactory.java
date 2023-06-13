@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 public class HttpClientFactory {
-    private static final Logger logger = LogManager.getFormatterLogger();
+    private static final Logger logger = LogManager.getFormatterLogger(HttpClientFactory.class);
     private static HttpClient httpClient = null;
 
     public static HttpClient getHttpClient() {

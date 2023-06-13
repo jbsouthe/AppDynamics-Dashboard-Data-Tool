@@ -36,7 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class Controller {
-    private static final Logger logger = LogManager.getFormatterLogger();
+    private static final Logger logger = LogManager.getFormatterLogger(Controller.class);
 
     public String hostname;
     public URL url;
